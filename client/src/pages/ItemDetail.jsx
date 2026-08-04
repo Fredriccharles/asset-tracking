@@ -6,9 +6,12 @@ import Alert from '../components/Alert';
 import StatusBadge from '../components/StatusBadge';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function ItemDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [item, setItem] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -74,16 +77,16 @@ export default function ItemDetail() {
     <Layout
       title={item.name}
       subtitle={`Asset Code: ${item.asset_code}`}
-      actions={
+actions={
         <>
           <Link to="/items" className="btn-secondary">← Back to Assets</Link>
-          {item.status === 'available' && (
+          {isAdmin && item.status === 'available' && (
             <button className="btn-primary" onClick={() => setCheckoutModal(true)}>Check Out</button>
           )}
-          {item.status !== 'retired' && item.status !== 'checked_out' && (
+          {isAdmin && item.status !== 'retired' && item.status !== 'checked_out' && (
             <button className="btn-secondary" onClick={() => setTicketModal(true)}>Report Issue</button>
           )}
-          {(item.status === 'available' || item.status === 'under_repair') && (
+          {isAdmin && (item.status === 'available' || item.status === 'under_repair') && (
             <button className="btn-danger" onClick={() => setRetireModal(true)}>Retire</button>
           )}
         </>
@@ -134,8 +137,8 @@ export default function ItemDetail() {
                       <td className="py-2 text-neutral-500">{c.checkout_date}</td>
                       <td className="py-2 text-neutral-500">{c.return_date || '—'}</td>
                       <td className="py-2"><StatusBadge status={c.status} /></td>
-                      <td className="py-2 text-right">
-                        {c.status === 'active' && (
+<td className="py-2 text-right">
+                        {c.status === 'active' && isAdmin && (
                           <button className="text-brand-600 hover:underline text-xs" onClick={() => doCheckin(c.id)}>Check In</button>
                         )}
                       </td>

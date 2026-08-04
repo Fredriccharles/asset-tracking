@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ctrl = require('../controllers/checkoutController');
 
 router.use(requireAuth);
 router.get('/', ctrl.listCheckouts);
-router.post('/', ctrl.checkOutItem);
-router.post('/:id/checkin', ctrl.checkInItem);
+
+// Check-out / check-in actions are admin-only
+router.post('/', requireAdmin, ctrl.checkOutItem);
+router.post('/:id/checkin', requireAdmin, ctrl.checkInItem);
 
 module.exports = router;

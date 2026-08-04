@@ -4,13 +4,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const NAV = [
+// Routes visible to every authenticated user. Admin-only routes (Reports,
+// Audit Log, Backup & Restore) are appended below.
+const USER_NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/items', label: 'Assets', icon: Package },
   { to: '/checkouts', label: 'Check In / Out', icon: Repeat },
   { to: '/maintenance', label: 'Maintenance', icon: Wrench },
   { to: '/retirements', label: 'Retirement', icon: Archive },
   { to: '/history', label: 'Asset History', icon: FolderTree },
+];
+
+const ADMIN_NAV = [
   { to: '/reports', label: 'Reports', icon: FileText },
   { to: '/audit', label: 'Audit Log', icon: History },
   { to: '/backup', label: 'Backup & Restore', icon: DatabaseBackup },
@@ -18,6 +23,8 @@ const NAV = [
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const nav = isAdmin ? [...USER_NAV, ...ADMIN_NAV] : USER_NAV;
 
   return (
     <aside className="w-64 shrink-0 bg-neutral-950 text-neutral-300 flex flex-col h-screen sticky top-0">
@@ -30,7 +37,7 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {NAV.map((item) => {
+        {nav.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
@@ -54,7 +61,7 @@ export default function Sidebar() {
 
       <div className="border-t border-neutral-800 p-4">
         <div className="text-sm font-medium text-white truncate">{user?.full_name || user?.username}</div>
-        <div className="text-xs text-neutral-500 mb-3">Administrator</div>
+        <div className="text-xs text-neutral-500 mb-3">{isAdmin ? 'Administrator' : 'Viewer'}</div>
         <NavLink
           to="/settings"
           className={({ isActive }) =>

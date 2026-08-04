@@ -7,8 +7,11 @@ import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Maintenance() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState({ data: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -81,7 +84,7 @@ export default function Maintenance() {
     <Layout
       title="Maintenance Tickets"
       subtitle="Repairs currently block an asset from being checked out"
-      actions={<button className="btn-primary" onClick={openNew}>+ New Ticket</button>}
+actions={isAdmin ? <button className="btn-primary" onClick={openNew}>+ New Ticket</button> : null}
     >
       <Alert message={error} onClose={() => setError('')} />
       <Alert type="success" message={success} onClose={() => setSuccess('')} />
@@ -131,8 +134,8 @@ export default function Maintenance() {
                   <td className="px-4 py-3 capitalize">{t.priority}</td>
                   <td className="px-4 py-3 text-neutral-500">{t.reported_date}</td>
                   <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                  <td className="px-4 py-3 text-right">
-                    {!['completed', 'cancelled'].includes(t.status) && (
+<td className="px-4 py-3 text-right">
+                    {!['completed', 'cancelled'].includes(t.status) && isAdmin && (
                       <button className="text-brand-600 hover:underline text-xs" onClick={() => openUpdate(t)}>Update</button>
                     )}
                   </td>

@@ -28,6 +28,26 @@ function getSummary(req, res) {
     GROUP BY category ORDER BY count DESC
   `).all();
 
+  // Free / available assets grouped by category (the main "available" view).
+  const availableByCategory = db.prepare(`
+    SELECT COALESCE(categories.name, 'Uncategorized') AS category, COUNT(*) AS count
+    FROM items LEFT JOIN categories ON categories.id = items.category_id
+    WHERE items.status = 'available'
+    GROUP BY category ORDER BY count DESC
+  `).all();
+
+  // A short list of the most recently updated available assets for quick access.
+  const availableAssets = db.prepare(`
+    SELECT items.id, items.asset_code, items.name, items.model, items.location,
+           categories.name AS category_name, subcategories.name AS subcategory_name
+    FROM items
+    LEFT JOIN categories ON categories.id = items.category_id
+    LEFT JOIN subcategories ON subcategories.id = items.subcategory_id
+    WHERE items.status = 'available'
+    ORDER BY items.updated_at DESC
+    LIMIT 10
+  `).all();
+
   const recentActivity = db.prepare(`
     SELECT action, entity_type, entity_id, username, created_at
     FROM audit_log ORDER BY created_at DESC LIMIT 10
@@ -42,6 +62,8 @@ function getSummary(req, res) {
     openTickets,
     overdueCheckouts,
     byCategory,
+    availableByCategory,
+    availableAssets,
     recentActivity,
   });
 }

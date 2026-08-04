@@ -10,6 +10,7 @@ const EMPTY_FORM = { currentPassword: '', newPassword: '', confirmPassword: '' }
 
 export default function Settings() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [form, setForm] = useState(EMPTY_FORM);
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState({ username: '', full_name: '', password: '', isAdmin: false });
@@ -18,7 +19,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // load users for admin user-management panel
+    // load users for admin user-management panel (only admins can access)
+    if (!isAdmin) return;
     async function load() {
       try {
         const res = await api.listUsers();
@@ -28,7 +30,7 @@ export default function Settings() {
       }
     }
     load();
-  }, []);
+  }, [isAdmin]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -57,16 +59,16 @@ export default function Settings() {
   };
 
   return (
-    <Layout title="Settings" subtitle="Manage your administrator account">
+<Layout title="Settings" subtitle={isAdmin ? "Manage your administrator account" : "Manage your account"}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="card p-5 h-fit">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center">
               <User size={18} strokeWidth={1.75} />
             </div>
-            <div className="min-w-0">
+<div className="min-w-0">
               <div className="font-medium text-neutral-900 truncate">{user?.full_name || user?.username}</div>
-              <div className="text-xs text-neutral-500">Administrator</div>
+              <div className="text-xs text-neutral-500">{isAdmin ? 'Administrator' : 'Viewer'}</div>
             </div>
           </div>
         </div>
@@ -124,6 +126,7 @@ export default function Settings() {
             </form>
           </div>
 
+{isAdmin && (
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <PlusCircle size={17} strokeWidth={1.75} className="text-neutral-500" />
@@ -188,6 +191,7 @@ export default function Settings() {
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </Layout>

@@ -33,6 +33,7 @@ export const changePassword = (currentPassword, newPassword) =>
 
 // --- Dashboard ---
 export const getDashboardSummary = () => api.get('/dashboard/summary');
+export const getAvailableAssets = (params) => api.get('/items', { params: { ...params, status: 'available' } });
 
 // --- Items ---
 export const listItems = (params) => api.get('/items', { params });

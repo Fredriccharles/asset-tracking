@@ -6,8 +6,11 @@ import Alert from '../components/Alert';
 import Pagination from '../components/Pagination';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function Retirements() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState({ data: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -61,7 +64,7 @@ export default function Retirements() {
     <Layout
       title="Retirement & Disposal"
       subtitle="Retired assets keep their full history — nothing is ever deleted"
-      actions={<button className="btn-primary" onClick={openModal}>+ Retire Asset</button>}
+actions={isAdmin ? <button className="btn-primary" onClick={openModal}>+ Retire Asset</button> : null}
     >
       <Alert message={error} onClose={() => setError('')} />
       <Alert type="success" message={success} onClose={() => setSuccess('')} />

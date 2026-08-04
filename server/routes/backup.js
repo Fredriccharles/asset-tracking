@@ -1,17 +1,18 @@
 const express = require('express');
-const multer = require('multer');
 const path = require('path');
+const multer = require('multer');
 const os = require('os');
 const router = express.Router();
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ctrl = require('../controllers/backupController');
 
 const upload = multer({ dest: path.join(os.tmpdir(), 'asset-tracker-uploads') });
 
 router.use(requireAuth);
-router.get('/', ctrl.listBackups);
-router.post('/', ctrl.createBackup);
-router.get('/download/:filename', ctrl.downloadBackup);
-router.post('/restore', upload.single('backupFile'), ctrl.restoreBackup);
+// Backup & restore are admin-only
+router.get('/', requireAdmin, ctrl.listBackups);
+router.post('/', requireAdmin, ctrl.createBackup);
+router.get('/download/:filename', requireAdmin, ctrl.downloadBackup);
+router.post('/restore', requireAdmin, upload.single('backupFile'), ctrl.restoreBackup);
 
 module.exports = router;

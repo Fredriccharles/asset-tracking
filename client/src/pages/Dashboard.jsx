@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
 import Alert from '../components/Alert';
+import { useAuth } from '../context/AuthContext';
 
 const STAT_DEFS = [
   { key: 'available', label: 'Available', color: 'bg-success-600', to: '/items?status=available' },
@@ -17,6 +18,8 @@ function money(n) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
 
@@ -26,6 +29,9 @@ export default function Dashboard() {
       .then((res) => setSummary(res.data))
       .catch((err) => setError(errMsg(err)));
   }, []);
+
+  const availableByCategory = summary?.availableByCategory || [];
+  const availableAssets = summary?.availableAssets || [];
 
   return (
     <Layout title="Dashboard" subtitle="Overview of your asset fleet">
@@ -64,7 +70,7 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <div className="card p-5">
               <h3 className="font-semibold text-neutral-900 mb-4">Assets by Category</h3>
               {summary.byCategory.length === 0 ? (
@@ -93,6 +99,66 @@ export default function Dashboard() {
             </div>
 
             <div className="card p-5">
+              <h3 className="font-semibold text-neutral-900 mb-4">Available Assets by Category</h3>
+              {availableByCategory.length === 0 ? (
+                <p className="text-sm text-neutral-400">No assets are currently available to use.</p>
+              ) : (
+                <div className="space-y-3">
+                  {availableByCategory.map((c) => {
+                    const max = Math.max(...availableByCategory.map((x) => x.count));
+                    return (
+                      <div key={c.category}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-neutral-700">{c.category}</span>
+                          <span className="text-success-700 font-medium">{c.count}</span>
+                        </div>
+                        <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-success-500 rounded-full"
+                            style={{ width: `${(c.count / max) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <Link to="/items?status=available" className="text-sm text-brand-600 hover:underline mt-4 inline-block">
+                View all available assets →
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="card p-5">
+              <h3 className="font-semibold text-neutral-900 mb-4">Recently Available Assets</h3>
+              {availableAssets.length === 0 ? (
+                <p className="text-sm text-neutral-400">No assets are currently available to use.</p>
+              ) : (
+                <ul className="divide-y divide-neutral-100">
+                  {availableAssets.map((a) => (
+                    <li key={a.id} className="py-2.5 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link to={`/items/${a.id}`} className="font-medium text-neutral-900 hover:text-brand-600 truncate block">
+                          {a.name}
+                        </Link>
+                        <div className="text-xs text-neutral-400">
+                          <span className="font-mono">{a.asset_code}</span>
+                          {a.category_name ? ` · ${a.category_name}` : ''}
+                          {a.subcategory_name ? ` / ${a.subcategory_name}` : ''}
+                          {a.location ? ` · ${a.location}` : ''}
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-success-700 bg-success-50 border border-success-200 rounded-full px-2.5 py-1">
+                        Available
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="card p-5">
               <h3 className="font-semibold text-neutral-900 mb-4">Recent Activity</h3>
               {summary.recentActivity.length === 0 ? (
                 <p className="text-sm text-neutral-400">No activity yet.</p>
@@ -109,9 +175,13 @@ export default function Dashboard() {
                   ))}
                 </ul>
               )}
-              <Link to="/audit" className="text-sm text-brand-600 hover:underline mt-4 inline-block">
-                View full audit log →
-              </Link>
+{isAdmin ? (
+                <Link to="/audit" className="text-sm text-brand-600 hover:underline mt-4 inline-block">
+                  View full audit log →
+                </Link>
+              ) : (
+                <p className="text-sm text-neutral-400 mt-4">Recent administrator activity.</p>
+              )}
             </div>
           </div>
         </>

@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Items from './pages/Items';
@@ -24,9 +25,10 @@ export default function App() {
       <Route path="/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
       <Route path="/retirements" element={<ProtectedRoute><Retirements /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><AssetHistory /></ProtectedRoute>} />
-      <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-      <Route path="/audit" element={<ProtectedRoute><AuditLog /></ProtectedRoute>} />
-      <Route path="/backup" element={<ProtectedRoute><Backup /></ProtectedRoute>} />
+      {/* Admin-only routes */}
+      <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+      <Route path="/audit" element={<AdminRoute><AuditLog /></AdminRoute>} />
+      <Route path="/backup" element={<AdminRoute><Backup /></AdminRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

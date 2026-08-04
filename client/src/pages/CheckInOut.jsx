@@ -7,8 +7,11 @@ import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function CheckInOut() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState({ data: [], total: 0 });
   const [loading, setLoading] = useState(true);
@@ -69,7 +72,7 @@ export default function CheckInOut() {
     <Layout
       title="Check-In / Check-Out"
       subtitle="Track who currently holds each asset"
-      actions={<button className="btn-primary" onClick={openModal}>+ New Check-Out</button>}
+actions={isAdmin ? <button className="btn-primary" onClick={openModal}>+ New Check-Out</button> : null}
     >
       <Alert message={error} onClose={() => setError('')} />
       <Alert type="success" message={success} onClose={() => setSuccess('')} />
@@ -119,8 +122,8 @@ export default function CheckInOut() {
                   <td className="px-4 py-3 text-neutral-500">{c.expected_return_date || '—'}</td>
                   <td className="px-4 py-3 text-neutral-500">{c.return_date || '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                  <td className="px-4 py-3 text-right">
-                    {c.status === 'active' && (
+<td className="px-4 py-3 text-right">
+                    {c.status === 'active' && isAdmin && (
                       <button className="text-brand-600 hover:underline text-xs" onClick={() => checkin(c.id)}>Check In</button>
                     )}
                   </td>

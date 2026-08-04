@@ -7,6 +7,7 @@ import Pagination from '../components/Pagination';
 import StatusBadge from '../components/StatusBadge';
 import * as api from '../api/api';
 import { errMsg } from '../api/api';
+import { useAuth } from '../context/AuthContext';
 
 const EMPTY_FORM = {
   asset_code: '', name: '', category_id: '', subcategory_id: '', description: '', model: '',
@@ -15,6 +16,8 @@ const EMPTY_FORM = {
 };
 
 export default function Items() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [params, setParams] = useSearchParams();
   const [data, setData] = useState({ data: [], total: 0 });
   const [categories, setCategories] = useState([]);
@@ -146,11 +149,13 @@ export default function Items() {
       title="Asset Inventory"
       subtitle={`${data.total} item${data.total === 1 ? '' : 's'} in the registry`}
       actions={
-        <>
-          <button className="btn-secondary" onClick={() => setCatModalOpen(true)}>+ Category</button>
-          <button className="btn-secondary" onClick={() => { setNewSubCategoryId(category_id || ''); setSubModalOpen(true); }}>+ Subcategory</button>
-          <button className="btn-primary" onClick={openCreate}>+ Add Asset</button>
-        </>
+        isAdmin ? (
+          <>
+            <button className="btn-secondary" onClick={() => setCatModalOpen(true)}>+ Category</button>
+            <button className="btn-secondary" onClick={() => { setNewSubCategoryId(category_id || ''); setSubModalOpen(true); }}>+ Subcategory</button>
+            <button className="btn-primary" onClick={openCreate}>+ Add Asset</button>
+          </>
+        ) : null
       }
     >
       <Alert message={error} onClose={() => setError('')} />
@@ -226,8 +231,10 @@ export default function Items() {
                   <td className="px-4 py-3 text-right text-neutral-600">
                     {item.purchase_cost != null ? `$${Number(item.purchase_cost).toFixed(2)}` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button className="text-brand-600 hover:underline text-xs mr-3" onClick={() => openEdit(item)}>Edit</button>
+<td className="px-4 py-3 text-right">
+                    {isAdmin && (
+                      <button className="text-brand-600 hover:underline text-xs mr-3" onClick={() => openEdit(item)}>Edit</button>
+                    )}
                     <Link to={`/items/${item.id}`} className="text-neutral-500 hover:underline text-xs">View</Link>
                   </td>
                 </tr>
