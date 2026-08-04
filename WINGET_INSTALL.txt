@@ -1,0 +1,161 @@
+====================================================================
+    ASSET TRACKER - INSTALL WITH WINGET (Windows Package Manager)
+====================================================================
+
+This file explains how to install the Asset Tracker desktop app using
+the Windows Package Manager (winget).
+
+The app is NOT published to Microsoft's public winget repository, so
+winget cannot simply find it by name. To install it with winget you
+must create a LOCAL manifest and install from that manifest.
+
+There are two ways to do this:
+
+  - OPTION A: Install from a local directory manifest (recommended)
+  - OPTION B: Install from a local URL/HTML manifest
+
+Both use the pre-built installer produced in the `release\` folder:
+
+    release\Asset Tracker Setup 1.0.0.exe
+
+--------------------------------------------------------------------
+PREREQUISITES
+--------------------------------------------------------------------
+1. Windows 10/11 (or Windows Server 2019+) with the App Installer
+   (winget) available. winget ships with Windows 11 and can be
+   installed on Windows 10 via the Microsoft Store "App Installer".
+
+   Check if winget is available by opening a PowerShell/Command Prompt
+   and running:
+
+       winget --version
+
+2. Node.js is NOT required to install the app. It is only needed to
+   BUILD the installer from source (see README.md, `npm run build`).
+
+--------------------------------------------------------------------
+OPTION A - LOCAL DIRECTORY MANIFEST (recommended)
+--------------------------------------------------------------------
+Step 1: Create the manifest folder structure.
+
+   Copy the installer into a folder you will keep, for example:
+
+       C:\winget\AssetTracker\1.0.0\Asset Tracker Setup 1.0.0.exe
+
+   Create the following folders (winget requires this exact layout):
+
+       C:\winget\manifests\
+       C:\winget\installers\
+       C:\winget\installers\Asset Tracker Setup 1.0.0.exe
+
+   (The manifest MUST live in a folder named `manifests` and the
+   installer can live in a sibling `installers` folder.)
+
+Step 2: Create the manifest file.
+
+   Create a file named:   C:\winget\manifests\AssetTracker.yaml
+
+   with this exact content (adjust paths if needed):
+
+   --------------------------------------------------------------------
+   # yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+   PackageIdentifier: Com.YourCompany.AssetTracker
+   PackageVersion: 1.0.0
+   DefaultLocale: en-US
+   ManifestType: version
+   ManifestVersion: 1.6.0
+   --------------------------------------------------------------------
+
+   Create a file named:   C:\winget\manifests\AssetTracker.installer.yaml
+
+   with this exact content:
+
+   --------------------------------------------------------------------
+   # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+   PackageIdentifier: Com.YourCompany.AssetTracker
+   PackageVersion: 1.0.0
+   InstallerLocale: en-US
+   MinimumOSVersion: 10.0.0.0
+   InstallerType: nullsoft
+   Scope: machine
+   InstallerUrl: file:///C:/winget/installers/Asset%20Tracker%20Setup%201.0.0.exe
+   InstallerHash: 67FCCA56B24C8A92299E6E0DFD78FDB6A350FD5ABB6674C9E3C3D4DE14B511F7
+   InstallerSwitches:
+     Silent: /S
+     SilentWithProgress: /S
+   UpgradeBehavior: install
+   ManifestType: installer
+   ManifestVersion: 1.6.0
+   --------------------------------------------------------------------
+
+   Create a file named:   C:\winget\manifests\AssetTracker.locale.en-US.yaml
+
+   with this exact content:
+
+   --------------------------------------------------------------------
+   # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+   PackageIdentifier: Com.YourCompany.AssetTracker
+   PackageVersion: 1.0.0
+   PackageLocale: en-US
+   Publisher: Your Company
+   Author: Your Company
+   PackageName: Asset Tracker
+   PackageUrl: https://example.com
+   License: UNLICENSED
+   ShortDescription: Offline Desktop Asset Tracking & Maintenance Management System
+   Description: Offline-first desktop application for tracking company assets, check-in/check-out, maintenance tickets, retirement/disposal, reporting, and backups.
+   ManifestType: defaultLocale
+   ManifestVersion: 1.6.0
+   --------------------------------------------------------------------
+
+Step 3: Install it with winget.
+
+   Open an ADMIN PowerShell/Command Prompt and run:
+
+       winget install --manifest C:\winget\manifests --accept-package-agreements --accept-source-agreements
+
+   winget will find the YAML files in the `manifests` folder, download
+   the installer from the local file URL, verify its SHA256 hash, and
+   run the silent NSIS installer.
+
+   Note: If you ever MOVE the installer, update the `InstallerUrl` in
+   AssetTracker.installer.yaml to match its new location.
+
+--------------------------------------------------------------------
+OPTION B - LOCAL URL/HTML MANIFEST
+--------------------------------------------------------------------
+If you prefer the URL-based source style, you can host the installer on
+a local web server and use a single winget source. This is more complex
+and requires a web server; Option A is much simpler for a local install.
+
+--------------------------------------------------------------------
+VERIFYING THE INSTALL
+--------------------------------------------------------------------
+To confirm the app was installed:
+
+    winget list --name "Asset Tracker"
+
+To uninstall:
+
+    winget uninstall --id Com.YourCompany.AssetTracker
+
+--------------------------------------------------------------------
+NOTES
+--------------------------------------------------------------------
+- `InstallerHash` above is the SHA-256 of the current build:
+  `67FCCA56B24C8A92299E6E0DFD78FDB6A350FD5ABB6674C9E3C3D4DE14B511F7`
+  If you rebuild the installer, regenerate the hash with:
+      Get-FileHash -Path ".\release\Asset Tracker Setup 1.0.0.exe" -Algorithm SHA256
+  and update the manifest's `InstallerHash` value.
+
+- NSIS installers support the silent switch `/S` (used above). If you
+  ever switch the app's build target to MSI, change `InstallerType` to
+  `msi` and use `msiexec` switches instead.
+
+- The Asset Tracker app stores its data in the per-user AppData folder
+  (e.g. %APPDATA%\asset-tracker\data\assets.db). Reinstalling via winget
+  will NOT delete your data.
+
+- Default admin login (first run): username `admin`, password `admin123`.
+  Change it immediately after first login.
+====================================================================

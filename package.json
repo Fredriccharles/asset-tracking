@@ -1,0 +1,63 @@
+{
+  "name": "asset-tracking-system",
+  "version": "1.0.0",
+  "description": "Offline Desktop Asset Tracking & Maintenance Management System",
+  "main": "electron/main.js",
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "server": "node server/server.js",
+    "server:dev": "nodemon server/server.js",
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "dev": "concurrently -k -n SERVER,CLIENT,ELECTRON -c blue,green,magenta \"npm:server:dev\" \"npm:client:dev\" \"npm run electron:dev\"",
+    "electron:dev": "wait-on http://127.0.0.1:5173 http-get://127.0.0.1:4310/api/health && cross-env NODE_ENV=development electron .",
+    "rebuild:electron": "electron-builder install-app-deps",
+    "rebuild:node": "npm rebuild better-sqlite3",
+    "build": "npm run client:build && npm run rebuild:electron && electron-builder && npm run rebuild:node",
+    "start": "npm run client:build && electron .",
+    "postinstall": "cd client && npm install"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3",
+    "nodemon": "^3.1.4",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.yourcompany.assettracker",
+    "productName": "Asset Tracker",
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "client/dist/**/*",
+      "!server/data/**",
+      "!server/backups/**",
+      "!server/uploads/**"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": { "target": "nsis" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  }
+}
