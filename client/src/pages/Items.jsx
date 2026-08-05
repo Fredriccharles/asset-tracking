@@ -39,6 +39,12 @@ export default function Items() {
   const [newSubName, setNewSubName] = useState('');
   const [newSubCategoryId, setNewSubCategoryId] = useState('');
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [importError, setImportError] = useState('');
+
   const q = params.get('q') || '';
   const status = params.get('status') || '';
   const category_id = params.get('category_id') || '';
@@ -144,6 +150,49 @@ export default function Items() {
     }
   };
 
+  const openImport = () => {
+    setImportFile(null);
+    setImportResult(null);
+    setImportError('');
+    setImportOpen(true);
+  };
+
+  const handleImportFile = (e) => {
+    setImportFile(e.target.files[0] || null);
+    setImportResult(null);
+    setImportError('');
+  };
+
+  const downloadTemplate = async () => {
+    try {
+      await api.downloadImportTemplate();
+    } catch (err) {
+      setImportError(errMsg(err));
+    }
+  };
+
+  const submitImport = async (e) => {
+    e.preventDefault();
+    if (!importFile) {
+      setImportError('Please choose an Excel (.xlsx) file to import.');
+      return;
+    }
+    setImporting(true);
+    setImportError('');
+    setImportResult(null);
+    const formData = new FormData();
+    formData.append('file', importFile);
+    try {
+      const res = await api.importItems(formData);
+      setImportResult(res.data);
+      load();
+    } catch (err) {
+      setImportError(errMsg(err));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <Layout
       title="Asset Inventory"
@@ -153,6 +202,7 @@ export default function Items() {
           <>
             <button className="btn-secondary" onClick={() => setCatModalOpen(true)}>+ Category</button>
             <button className="btn-secondary" onClick={() => { setNewSubCategoryId(category_id || ''); setSubModalOpen(true); }}>+ Subcategory</button>
+            <button className="btn-secondary" onClick={openImport}>Import Excel</button>
             <button className="btn-primary" onClick={openCreate}>+ Add Asset</button>
           </>
         ) : null
@@ -231,7 +281,7 @@ export default function Items() {
                   <td className="px-4 py-3 text-right text-neutral-600">
                     {item.purchase_cost != null ? `$${Number(item.purchase_cost).toFixed(2)}` : '—'}
                   </td>
-<td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right">
                     {isAdmin && (
                       <button className="text-brand-600 hover:underline text-xs mr-3" onClick={() => openEdit(item)}>Edit</button>
                     )}
@@ -281,7 +331,7 @@ export default function Items() {
                 {formSubcategories.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
-            
+
             <div>
               <label className="label">Model</label>
               <input className="input" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
@@ -307,7 +357,7 @@ export default function Items() {
             <label className="label">Description</label>
             <textarea className="input" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
-          
+
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn-secondary" onClick={() => setModalOpen(false)}>Cancel</button>
             <button type="submit" disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save Asset'}</button>
@@ -344,6 +394,55 @@ export default function Items() {
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={() => setSubModalOpen(false)}>Cancel</button>
             <button type="submit" className="btn-primary">Add</button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Import Assets from Excel" width="max-w-xl">
+        <form onSubmit={submitImport} className="space-y-4">
+          <Alert message={importError} onClose={() => setImportError('')} />
+          <p className="text-sm text-neutral-600">
+            Upload an Excel (<code className="font-mono text-xs">.xlsx</code>) file to add many assets at once.
+            Categories and subcategories referenced in the file will be created automatically if they don't exist.
+          </p>
+          <button type="button" className="text-brand-600 hover:underline text-sm" onClick={downloadTemplate}>
+            ⬇ Download import template
+          </button>
+          <div>
+            <label className="label">Excel File *</label>
+            <input
+              type="file"
+              accept=".xlsx"
+              className="input"
+              onChange={handleImportFile}
+            />
+            {importFile && (
+              <p className="text-xs text-neutral-500 mt-1">Selected: {importFile.name}</p>
+            )}
+          </div>
+
+          {importResult && (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm space-y-1">
+              <p className="font-semibold text-neutral-900">Import summary</p>
+              <p className="text-neutral-700">Total rows: <span className="font-medium">{importResult.total}</span></p>
+              <p className="text-emerald-600">Imported: <span className="font-medium">{importResult.imported}</span></p>
+              <p className="text-amber-600">Skipped: <span className="font-medium">{importResult.skipped}</span></p>
+              <p className="text-red-600">Failed: <span className="font-medium">{importResult.failed}</span></p>
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="pt-2 max-h-40 overflow-y-auto border-t border-neutral-200">
+                  {importResult.errors.map((msg, i) => (
+                    <p key={i} className="text-xs text-neutral-500">{msg}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" className="btn-secondary" onClick={() => setImportOpen(false)}>Close</button>
+            <button type="submit" disabled={importing} className="btn-primary">
+              {importing ? 'Importing…' : 'Import Assets'}
+            </button>
           </div>
         </form>
       </Modal>

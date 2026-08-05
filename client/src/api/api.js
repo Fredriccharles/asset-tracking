@@ -44,6 +44,19 @@ export const listCategories = () => api.get('/items/categories');
 export const createCategory = (data) => api.post('/items/categories', data);
 export const listSubcategories = (category_id) => api.get('/items/subcategories', { params: category_id ? { category_id } : {} });
 export const createSubcategory = (data) => api.post('/items/subcategories', data);
+export const importItems = (formData) =>
+  api.post('/items/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+export const downloadImportTemplate = async () => {
+  const res = await api.get('/items/import/template', { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', 'asset-import-template.xlsx');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
 
 // --- Checkouts ---
 export const listCheckouts = (params) => api.get('/checkouts', { params });

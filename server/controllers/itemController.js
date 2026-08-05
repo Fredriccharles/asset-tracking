@@ -1,3 +1,6 @@
+const path = require('path');
+const fs = require('fs');
+const ExcelJS = require('exceljs');
 const { db } = require('../db/init');
 const { logAction } = require('../middleware/audit');
 const { recordHistory } = require('../middleware/assetHistory');
@@ -243,8 +246,250 @@ function createSubcategory(req, res) {
   }
 }
 
+// ---------------------------------------------------------------------
+// Excel bulk import
+// ---------------------------------------------------------------------
+
+// Maps a friendly header name (case & whitespace-insensitive) to an item
+// database column. Multiple synonyms are supported so users can use
+// whatever spreadsheet headers they already have.
+const HEADER_ALIASES = {
+  asset_code: ['asset code', 'assetcode', 'code', 'asset #', 'asset no', 'asset id'],
+  name: ['name', 'asset name', 'item name', 'item', 'description of asset'],
+  category: ['category', 'type', 'asset category'],
+  subcategory: ['subcategory', 'sub category', 'sub-category', 'subtype'],
+  description: ['description', 'details', 'asset description'],
+  manufacturer: ['manufacturer', 'brand', 'make'],
+  model: ['model', 'model number', 'model #'],
+  serial_number: ['serial number', 'serial', 'serial no', 'serial #', 'sn'],
+  purchase_date: ['purchase date', 'date purchased', 'date of purchase', 'purchase-date'],
+  purchase_cost: ['purchase cost', 'cost', 'price', 'value', 'purchase price', 'amount'],
+  supplier: ['supplier', 'vendor', 'purchased from'],
+  location: ['location', 'site', 'room', 'department location'],
+  condition_note: ['condition', 'condition note', 'condition notes', 'state'],
+  notes: ['notes', 'remarks', 'comments', 'additional notes'],
+};
+
+function normalizeHeader(header) {
+  return String(header || '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+// Returns the item DB column a spreadsheet header maps to, or null.
+function mapHeader(header) {
+  const key = normalizeHeader(header);
+  if (!key) return null;
+  for (const [col, aliases] of Object.entries(HEADER_ALIASES)) {
+    if (aliases.some((a) => normalizeHeader(a) === key) || col === key) return col;
+  }
+  return null;
+}
+
+// Resolve a category id from a friendly name, creating it if missing.
+function resolveCategory(name) {
+  if (!name) return null;
+  const clean = String(name).trim();
+  if (!clean) return null;
+  let cat = db.prepare('SELECT * FROM categories WHERE name = ? COLLATE NOCASE').get(clean);
+  if (!cat) {
+    const info = db.prepare('INSERT INTO categories (name) VALUES (?)').run(clean);
+    cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(info.lastInsertRowid);
+  }
+  return cat.id;
+}
+
+// Resolve a subcategory id within a category, creating it if missing.
+function resolveSubcategory(name, categoryId) {
+  if (!name || !categoryId) return null;
+  const clean = String(name).trim();
+  if (!clean) return null;
+  let sub = db
+    .prepare('SELECT * FROM subcategories WHERE category_id = ? AND name = ? COLLATE NOCASE')
+    .get(categoryId, clean);
+  if (!sub) {
+    const info = db.prepare('INSERT INTO subcategories (category_id, name) VALUES (?, ?)').run(categoryId, clean);
+    sub = db.prepare('SELECT * FROM subcategories WHERE id = ?').get(info.lastInsertRowid);
+  }
+  return sub.id;
+}
+
+// Coerce a raw cell value to a string or null.
+function cellText(v) {
+  if (v === null || v === undefined) return null;
+  const s = String(v instanceof Date ? v.toISOString().slice(0, 10) : v).trim();
+  return s === '' ? null : s;
+}
+
+// POST /api/items/import  — bulk-create assets from an uploaded .xlsx file
+function importItems(req, res) {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded. Please choose an Excel (.xlsx) file.' });
+
+  const filePath = req.file.path;
+  const workbook = new ExcelJS.Workbook();
+
+  workbook.xlsx.readFile(filePath)
+    .then(() => {
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) throw new Error('The uploaded file contains no worksheet.');
+
+      // Read the header row.
+      const headerRow = worksheet.getRow(1);
+      const headers = [];
+      headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+        headers[colNumber] = mapHeader(cell.value);
+      });
+
+      const headerCount = worksheet.columnCount;
+      const mappedCount = headers.filter(Boolean).length;
+      if (mappedCount === 0) {
+        throw new Error('No recognized columns found. Please use the provided template or check the header row.');
+      }
+
+      const results = { total: 0, imported: 0, skipped: 0, failed: 0, errors: [] };
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // skip header
+        results.total += 1;
+
+        // Build a row map: column -> text value.
+        const rowData = {};
+        for (let c = 1; c <= headerCount; c++) {
+          const col = headers[c];
+          if (!col) continue;
+          const cell = row.getCell(c);
+          rowData[col] = cellText(cell.value);
+        }
+
+        const asset_code = rowData.asset_code;
+        const name = rowData.name;
+        if (!asset_code || !name) {
+          results.skipped += 1;
+          results.errors.push(`Row ${rowNumber}: skipped (asset code and name are required).`);
+          return;
+        }
+
+        const categoryId = resolveCategory(rowData.category);
+        const subcategoryId = resolveSubcategory(rowData.subcategory, categoryId);
+
+        const subError = validateSubcategory(categoryId, subcategoryId);
+        if (subError) {
+          results.failed += 1;
+          results.errors.push(`Row ${rowNumber}: ${subError}`);
+          return;
+        }
+
+        const existing = db.prepare('SELECT id FROM items WHERE asset_code = ? COLLATE NOCASE').get(asset_code);
+        if (existing) {
+          results.skipped += 1;
+          results.errors.push(`Row ${rowNumber}: skipped (asset code "${asset_code}" already exists).`);
+          return;
+        }
+
+        const stmt = db.prepare(`
+          INSERT INTO items (asset_code, name, category_id, subcategory_id, description, manufacturer, model,
+            serial_number, purchase_date, purchase_cost, supplier, location, condition_note, notes)
+          VALUES (@asset_code, @name, @category_id, @subcategory_id, @description, @manufacturer, @model,
+            @serial_number, @purchase_date, @purchase_cost, @supplier, @location, @condition_note, @notes)
+        `);
+
+        const info = stmt.run({
+          asset_code,
+          name,
+          category_id: categoryId,
+          subcategory_id: subcategoryId,
+          description: rowData.description || null,
+          manufacturer: rowData.manufacturer || null,
+          model: rowData.model || null,
+          serial_number: rowData.serial_number || null,
+          purchase_date: rowData.purchase_date || null,
+          purchase_cost: rowData.purchase_cost != null && rowData.purchase_cost !== ''
+            ? Number(rowData.purchase_cost) : null,
+          supplier: rowData.supplier || null,
+          location: rowData.location || null,
+          condition_note: rowData.condition_note || null,
+          notes: rowData.notes || null,
+        });
+
+        const item = db.prepare(`${baseQuery()} WHERE items.id = ?`).get(info.lastInsertRowid);
+        logAction(req, 'ITEM_CREATE', 'item', item.id, { asset_code: item.asset_code, name: item.name, source: 'import' });
+        recordHistory(req, item.id, 'registration',
+          `Asset registered via Excel import as "${item.name}" (${item.asset_code}).`, {
+            referenceType: 'item',
+            referenceId: item.id,
+            metadata: { category_id: item.category_id, subcategory_id: item.subcategory_id, location: item.location, source: 'import' },
+          });
+
+        results.imported += 1;
+      });
+
+      res.json({ message: 'Import complete.', ...results });
+    })
+    .catch((err) => {
+      console.error('Import error:', err);
+      res.status(400).json({ error: err.message || 'Failed to parse the uploaded Excel file.' });
+    });
+}
+
+// GET /api/items/import/template  — download a blank .xlsx template
+function downloadTemplate(req, res) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Assets');
+
+  const cols = [
+    ['asset_code', 'Asset Code *'],
+    ['name', 'Name *'],
+    ['category', 'Category'],
+    ['subcategory', 'Subcategory'],
+    ['manufacturer', 'Manufacturer'],
+    ['model', 'Model'],
+    ['serial_number', 'Serial Number'],
+    ['purchase_date', 'Purchase Date (YYYY-MM-DD)'],
+    ['purchase_cost', 'Purchase Cost'],
+    ['supplier', 'Supplier'],
+    ['location', 'Location'],
+    ['condition_note', 'Condition'],
+    ['description', 'Description'],
+    ['notes', 'Notes'],
+  ];
+
+  sheet.columns = cols.map(([key, header], i) => ({
+    header,
+    key,
+    width: Math.max(18, header.length + 4),
+  }));
+
+  // Example row to guide the user.
+  sheet.addRow({
+    asset_code: 'IT-1001',
+    name: 'Dell Latitude 5420',
+    category: 'IT Equipment',
+    subcategory: 'Laptop',
+    manufacturer: 'Dell',
+    model: 'Latitude 5420',
+    serial_number: 'SN123456',
+    purchase_date: '2024-01-15',
+    purchase_cost: 1250,
+    supplier: 'Tech Supplier Co.',
+    location: 'Head Office',
+    condition_note: 'Good',
+    description: 'Standard issue laptop',
+    notes: 'Imported via template',
+  });
+
+  // Style the header row.
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } };
+  headerRow.alignment = { vertical: 'middle' };
+  headerRow.height = 22;
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', 'attachment; filename="asset-import-template.xlsx"');
+  workbook.xlsx.write(res).then(() => res.end());
+}
+
 module.exports = {
   listItems, getItem, createItem, updateItem,
   listCategories, createCategory,
   listSubcategories, createSubcategory,
+  importItems, downloadTemplate,
 };

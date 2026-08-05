@@ -1,3 +1,9 @@
+// Ensure better-sqlite3 is compiled for the current Node.js ABI before
+// anything loads the database module. This prevents ERR_DLOPEN_FAILED
+// crashes when the native module was built for Electron/another Node version.
+const { ensureNodeSqlite } = require('../scripts/ensure-node-sqlite');
+ensureNodeSqlite();
+
 const { createApp } = require('./app');
 const { scheduleMonthlyBackup } = require('./services/backupService');
 
