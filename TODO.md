@@ -1,20 +1,24 @@
-# TODO: Role-based access + Available assets dashboard
+# Task Progress
 
-## Backend
-- [x] 1. schema.sql: allow role 'user' in users CHECK constraint
-- [x] 2. init.js: migration to rebuild users table for existing DBs with 'user' role
-- [x] 3. middleware/auth.js: add requireAdmin middleware
-- [x] 4. routes: apply requireAdmin to write/admin operations
-- [x] 5. dashboardController: add availableByCategory + availableAssets to summary
+## Goal: Fix Excel exports to show values (not codes) in packaged app + create a web-deployable version
 
-## Frontend
-- [x] 6. api.js: add getAvailableAssets helper
-- [x] 7. Sidebar.jsx: filter nav by role, show role label
-- [x] 8. AdminRoute.jsx: new admin-gating component
-- [x] 9. App.jsx: wrap admin-only routes with AdminRoute
-- [x] 10. Dashboard.jsx: add Available Assets section
-- [x] 11. Hide action buttons for non-admins in Items, CheckInOut, Maintenance, Retirements, ItemDetail, Settings
+### Part 1 — Rebuild packaged app (Excel fix)
+- [x] Step 1: Build client bundle (`npm run client:build`)
+- [x] Step 2: Rebuild Electron package (`npx electron-builder`) so bundled `app.asar` includes fixed `reportController.js`
+- [x] Step 3: Verify new installer exists in `release/` (Asset Tracker Setup 1.0.0.exe, updated 8/5/2026)
 
-## Verify
-- [ ] 12. Test admin vs user flows
-- [ ] 13. Build client to verify no compile errors
+### Part 2 — Create web version (internet deployable) in `web/` folder
+- [x] Step 4: Create `web/` folder structure with web-optimized server (binds 0.0.0.0, configurable port)
+- [x] Step 5: Add `.env.example`, `README.md`, `start.bat`, `start.sh`, `Dockerfile`, `.dockerignore`
+- [x] Step 6: Build client into web bundle + copy server files to make `web/` self-contained
+- [x] Step 7: Verify web bundle completeness
+  - [x] `npm install` succeeds (277 packages)
+  - [x] Server starts and binds to `0.0.0.0:8080`
+  - [x] Health endpoint returns `{"status":"ok"}`
+  - [x] Root serves React app (`id="root"`, "Asset Tracker" title, HTTP 200)
+  - [x] Reports endpoint correctly requires auth (401 without token)
+
+### Notes
+- The label-conversion code already exists in `server/controllers/reportController.js` (maps all status/priority/action codes to readable labels for both PDF & Excel).
+- Root cause of user seeing codes: packaged `release/` app.asar predates the fixes.
+

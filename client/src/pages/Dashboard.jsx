@@ -17,6 +17,49 @@ function money(n) {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'PHP' }).format(n || 0);
 }
 
+const ACTIVITY_LABELS = {
+  LOGIN: 'Login',
+  LOGOUT: 'Logout',
+  PASSWORD_CHANGE: 'Password Change',
+  USER_CREATE: 'User Created',
+  USER_UPDATE: 'User Updated',
+  ITEM_CREATE: 'Item Created',
+  ITEM_UPDATE: 'Item Updated',
+  ITEM_RETIRE: 'Item Retired',
+  CATEGORY_CREATE: 'Category Created',
+  SUBCATEGORY_CREATE: 'Subcategory Created',
+  CHECKOUT: 'Check-Out',
+  CHECKIN: 'Check-In',
+  TICKET_CREATE: 'Maintenance Ticket Opened',
+  TICKET_UPDATE: 'Maintenance Ticket Updated',
+  BACKUP_CREATE: 'Backup Created',
+  RESTORE: 'Database Restored',
+  REPORT_GENERATE: 'Report Generated',
+};
+
+const ACTIVITY_ENTITY_LABELS = {
+  item: 'Item',
+  checkout: 'Check-Out',
+  maintenance_ticket: 'Maintenance Ticket',
+  retirement: 'Retirement',
+  category: 'Category',
+  subcategory: 'Subcategory',
+  user: 'User',
+  backup: 'Backup',
+  report: 'Report',
+};
+
+function niceLabel(value, map) {
+  if (!value) return '';
+  const mapped = map[value];
+  if (mapped !== undefined) return mapped;
+  return String(value)
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
@@ -167,8 +210,8 @@ export default function Dashboard() {
                   {summary.recentActivity.map((a, i) => (
                     <li key={i} className="flex items-start justify-between text-sm">
                       <div>
-                        <span className="font-medium text-neutral-800">{a.action.replace(/_/g, ' ')}</span>
-                        <span className="text-neutral-400"> — {a.entity_type} #{a.entity_id}</span>
+<span className="font-medium text-neutral-800">{niceLabel(a.action, ACTIVITY_LABELS)}</span>
+                        <span className="text-neutral-400"> — {a.entity_type ? `${niceLabel(a.entity_type, ACTIVITY_ENTITY_LABELS)} #${a.entity_id}` : ''}</span>
                       </div>
                       <span className="text-neutral-400 whitespace-nowrap ml-3">{a.created_at}</span>
                     </li>

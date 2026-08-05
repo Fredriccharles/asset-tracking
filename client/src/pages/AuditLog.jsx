@@ -90,8 +90,8 @@ export default function AuditLog() {
                 <tr key={a.id} className="hover:bg-neutral-50 align-top">
                   <td className="px-4 py-3 text-neutral-500 whitespace-nowrap">{a.created_at}</td>
                   <td className="px-4 py-3">{a.username}</td>
-                  <td className="px-4 py-3 font-medium text-neutral-800">{a.action.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3 text-neutral-600">{a.entity_type ? `${a.entity_type} #${a.entity_id}` : '—'}</td>
+<td className="px-4 py-3 font-medium text-neutral-800">{actionLabel(a.action)}</td>
+                  <td className="px-4 py-3 text-neutral-600">{a.entity_type ? `${entityLabel(a.entity_type)} #${a.entity_id}` : '—'}</td>
                   <td className="px-4 py-3 text-neutral-500 max-w-sm truncate" title={a.details}>{renderDetails(a)}</td>
                 </tr>
               ))
@@ -104,6 +104,52 @@ export default function AuditLog() {
     </Layout>
   );
 }
+
+const ACTION_LABELS = {
+  LOGIN: 'Login',
+  LOGOUT: 'Logout',
+  PASSWORD_CHANGE: 'Password Change',
+  USER_CREATE: 'User Created',
+  USER_UPDATE: 'User Updated',
+  ITEM_CREATE: 'Item Created',
+  ITEM_UPDATE: 'Item Updated',
+  ITEM_RETIRE: 'Item Retired',
+  CATEGORY_CREATE: 'Category Created',
+  SUBCATEGORY_CREATE: 'Subcategory Created',
+  CHECKOUT: 'Check-Out',
+  CHECKIN: 'Check-In',
+  TICKET_CREATE: 'Maintenance Ticket Opened',
+  TICKET_UPDATE: 'Maintenance Ticket Updated',
+  BACKUP_CREATE: 'Backup Created',
+  RESTORE: 'Database Restored',
+  REPORT_GENERATE: 'Report Generated',
+};
+
+const ENTITY_LABELS = {
+  item: 'Item',
+  checkout: 'Check-Out',
+  maintenance_ticket: 'Maintenance Ticket',
+  retirement: 'Retirement',
+  category: 'Category',
+  subcategory: 'Subcategory',
+  user: 'User',
+  backup: 'Backup',
+  report: 'Report',
+};
+
+function prettyCode(value, map) {
+  if (!value) return value || '—';
+  const mapped = map[value];
+  if (mapped !== undefined) return mapped;
+  return String(value)
+    .toLowerCase()
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+const actionLabel = (a) => prettyCode(a, ACTION_LABELS);
+const entityLabel = (e) => prettyCode(e, ENTITY_LABELS);
 
 function renderDetails(a) {
   if (!a.details) return '—';
