@@ -2,22 +2,12 @@ const bcrypt = require('bcryptjs');
 const { db } = require('../db/init');
 const { logAction } = require('../middleware/audit');
 
-function ensureAdmin(req, res) {
-  if (!req.user || req.user.role !== 'admin') {
-    res.status(403).json({ error: 'Administrator privileges required.' });
-    return false;
-  }
-  return true;
-}
-
 function listUsers(req, res) {
-  if (!ensureAdmin(req, res)) return;
   const rows = db.prepare('SELECT id, username, full_name, role, is_active, last_login_at FROM users ORDER BY username').all();
   res.json({ data: rows, total: rows.length });
 }
 
 function createUser(req, res) {
-  if (!ensureAdmin(req, res)) return;
   const { username, password, full_name, role } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
@@ -30,7 +20,6 @@ function createUser(req, res) {
 }
 
 function updateUser(req, res) {
-  if (!ensureAdmin(req, res)) return;
   const id = parseInt(req.params.id, 10);
   const { role, is_active } = req.body;
   const user = db.prepare('SELECT id FROM users WHERE id = ?').get(id);
